@@ -1,18 +1,22 @@
-name: Go Build/Test
+name: Go Build
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "**" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GOFLAGS: -buildvcs=false
 
 jobs:
-  build:
-    runs-on: [ self-hosted, Linux, X64, Docker ]
-    container: golang:1.22-bookworm
+  go-build:
+    runs-on: [ self-hosted, Linux, Docker ]
+    container: golang:1.23-bookworm
     defaults:
       run:
         working-directory: ./go
@@ -25,7 +29,11 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22.5'
+          go-version: '1.23.3'
+          cache: true
+          cache-dependency-path: |
+            **/go.sum
+            **/go.mod
 
       - name: Build
         run: go build -v ./...
@@ -38,6 +46,7 @@ jobs:
 
       - name: Convert status to uppercase
         if: always()
+        continue-on-error: true
         id: status
         uses: ASzc/change-string-case-action@v6
         with:
@@ -45,15 +54,17 @@ jobs:
 
       - name: Create Slack description from PR
         if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
         id: pr
         run: |
           echo 'description<<EOF' >> $GITHUB_OUTPUT
-          echo *${{ github.event.pull_request.title }}* >> $GITHUB_OUTPUT
+          echo "*${{ github.event.pull_request.title }}*" >> $GITHUB_OUTPUT
           git show -s --format=%B ${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
       - name: Post build result to Slack
         if: always()
+        continue-on-error: true
         id: slack
         uses: slackapi/slack-github-action@v1.26.0
         with:
