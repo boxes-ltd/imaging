@@ -1,5 +1,5 @@
 module github.com/boxes-ltd/imaging
 
-go 1.22.4
+go 1.21
 
 require golang.org/x/image v0.23.0
